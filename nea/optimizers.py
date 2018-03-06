@@ -1,21 +1,21 @@
-import keras.optimizers as opt
-
-def get_optimizer(args):
+import torch
+import torch.optim as opt
+def get_optimizer(params,args):
 
 	clipvalue = 0
 	clipnorm = 10
 
 	if args.algorithm == 'rmsprop':
-		optimizer = opt.RMSprop(lr=0.001, rho=0.9, epsilon=1e-06, clipnorm=clipnorm, clipvalue=clipvalue)
+		optimizer = opt.RMSprop(params,lr=0.001, alpha=0.9, eps=1e-06)
 	elif args.algorithm == 'sgd':
-		optimizer = opt.SGD(lr=0.01, momentum=0.0, decay=0.0, nesterov=False, clipnorm=clipnorm, clipvalue=clipvalue)
+		optimizer = opt.SGD(params,lr=0.01, momentum=0.0, weight_decay=0.0, nesterov=False)
 	elif args.algorithm == 'adagrad':
-		optimizer = opt.Adagrad(lr=0.01, epsilon=1e-06, clipnorm=clipnorm, clipvalue=clipvalue)
+		optimizer = opt.Adagrad(params,lr=0.01)
 	elif args.algorithm == 'adadelta':
-		optimizer = opt.Adadelta(lr=1.0, rho=0.95, epsilon=1e-06, clipnorm=clipnorm, clipvalue=clipvalue)
+		optimizer = opt.Adadelta(params,lr=1.0, rho=0.95, eps=1e-06)
 	elif args.algorithm == 'adam':
-		optimizer = opt.Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08, clipnorm=clipnorm, clipvalue=clipvalue)
+		optimizer = opt.Adam(params,lr=0.001, betas=(0.9,0.999), eps=1e-08)
 	elif args.algorithm == 'adamax':
-		optimizer = opt.Adamax(lr=0.002, beta_1=0.9, beta_2=0.999, epsilon=1e-08, clipnorm=clipnorm, clipvalue=clipvalue)
+		optimizer = opt.Adamax(params,lr=0.002,betas=(0.9,0.999), eps=1e-08)
 	
 	return optimizer

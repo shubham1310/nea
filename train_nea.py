@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import os
 import argparse
 import logging
@@ -10,14 +9,16 @@ import sys
 import nea.utils as U
 import pickle as pk
 
+import torch
+import torch.optim as optim
+import torch.nn as nn
+from torch.autograd import Variable
 
-os.environ['KERAS_BACKEND']='theano'
+import torchvision
+import torchvision.datasets as datasets
+import torchvision.transforms as transforms
+from torch.autograd import Variable
 logger = logging.getLogger(__name__)
-
-###############################################################################################################################
-## Parse arguments
-#
-
 parser = argparse.ArgumentParser()
 parser.add_argument("-tr", "--train", dest="train_path", type=str, metavar='<str>', required=True, help="The path to the training set")
 parser.add_argument("-tu", "--tune", dest="dev_path", type=str, metavar='<str>', required=True, help="The path to the development set")
@@ -43,6 +44,7 @@ parser.add_argument("--epochs", dest="epochs", type=int, metavar='<int>', defaul
 parser.add_argument("--maxlen", dest="maxlen", type=int, metavar='<int>', default=0, help="Maximum allowed number of words during training. '0' means no limit (default=0)")
 parser.add_argument("--seed", dest="seed", type=int, metavar='<int>', default=1234, help="Random seed (default=1234)")
 args = parser.parse_args()
+print (args)
 
 out_dir = args.out_dir_path
 
@@ -59,183 +61,138 @@ assert args.aggregation in {'mot', 'attsum', 'attmean'}
 if args.seed > 0:
 	np.random.seed(args.seed)
 
-if args.prompt_id:
-	from nea.asap_evaluator import Evaluator
-	import nea.asap_reader as dataset
-else:
-	raise NotImplementedError
-
-###############################################################################################################################
-## Prepare data
-#
-
-from keras.preprocessing import sequence
+from nea.asap_evaluator import Evaluator
+from nea.asap_reader import *
+# import nea.asap_reader as dataset
 
 # data_x is a list of lists
-(train_x, train_y, train_pmt), (dev_x, dev_y, dev_pmt), (test_x, test_y, test_pmt), vocab, vocab_size, overal_maxlen, num_outputs = dataset.get_data(
-	(args.train_path, args.dev_path, args.test_path), args.prompt_id, args.vocab_size, args.maxlen, tokenize_text=True, to_lower=True, sort_by_len=False, vocab_path=args.vocab_path)
+vocab, vocab_size, overal_maxlen,_ = get_stats((args.train_path, args.dev_path, args.test_path), args.prompt_id, args.vocab_size, args.maxlen, tokenize_text=True, to_lower=True, sort_by_len=False, vocab_path=args.vocab_path)
+
+traindataset= dataloader((args.train_path, args.train_path), args.prompt_id, args.vocab_size, args.maxlen, vocab_path=args.vocab_path)
+devdataset= dataloader((args.train_path, args.dev_path), args.prompt_id, args.vocab_size, args.maxlen, vocab_path=args.vocab_path)
+testdataset = dataloader((args.train_path, args.test_path), args.prompt_id, args.vocab_size, args.maxlen, vocab_path=args.vocab_path)
+
+traindata = torch.utils.data.DataLoader(traindataset,batch_size=args.batch_size,shuffle=True, num_workers=4)
+devdata = torch.utils.data.DataLoader(devdataset,batch_size=args.batch_size,shuffle=True, num_workers=4)
+testdata = torch.utils.data.DataLoader(testdataset,batch_size=args.batch_size,shuffle=True, num_workers=4)
 
 # Dump vocab
 with open(out_dir + '/vocab.pkl', 'wb') as vocab_file:
 	pk.dump(vocab, vocab_file)
 
-# Pad sequences for mini-batch processing
-if args.model_type in {'breg', 'bregp'}:
-	assert args.rnn_dim > 0
-	assert args.recurrent_unit == 'lstm'
-	train_x = sequence.pad_sequences(train_x, maxlen=overal_maxlen)
-	dev_x = sequence.pad_sequences(dev_x, maxlen=overal_maxlen)
-	test_x = sequence.pad_sequences(test_x, maxlen=overal_maxlen)
-else:
-	train_x = sequence.pad_sequences(train_x)
-	dev_x = sequence.pad_sequences(dev_x)
-	test_x = sequence.pad_sequences(test_x)
-
-###############################################################################################################################
-## Some statistics
-#
-
-import keras.backend as K
-
-train_y = np.array(train_y, dtype=K.floatx())
-dev_y = np.array(dev_y, dtype=K.floatx())
-test_y = np.array(test_y, dtype=K.floatx())
-
-if args.prompt_id:
-	train_pmt = np.array(train_pmt, dtype='int32')
-	dev_pmt = np.array(dev_pmt, dtype='int32')
-	test_pmt = np.array(test_pmt, dtype='int32')
-
-bincounts, mfs_list = U.bincounts(train_y)
-with open('%s/bincounts.txt' % out_dir, 'w') as output_file:
-	for bincount in bincounts:
-		output_file.write(str(bincount) + '\n')
-
-train_mean = train_y.mean(axis=0)
-train_std = train_y.std(axis=0)
-dev_mean = dev_y.mean(axis=0)
-dev_std = dev_y.std(axis=0)
-test_mean = test_y.mean(axis=0)
-test_std = test_y.std(axis=0)
-
-logger.info('Statistics:')
-
-logger.info('  train_x shape: ' + str(np.array(train_x).shape))
-logger.info('  dev_x shape:   ' + str(np.array(dev_x).shape))
-logger.info('  test_x shape:  ' + str(np.array(test_x).shape))
-
-logger.info('  train_y shape: ' + str(train_y.shape))
-logger.info('  dev_y shape:   ' + str(dev_y.shape))
-logger.info('  test_y shape:  ' + str(test_y.shape))
-
-logger.info('  train_y mean: %s, stdev: %s, MFC: %s' % (str(train_mean), str(train_std), str(mfs_list)))
-
 # We need the dev and test sets in the original scale for evaluation
-dev_y_org = dev_y.astype(dataset.get_ref_dtype())
-test_y_org = test_y.astype(dataset.get_ref_dtype())
+# dev_y_org = dev_y.astype(dataset.get_ref_dtype())
+# test_y_org = test_y.astype(dataset.get_ref_dtype())
 
-# Convert scores to boundary of [0 1] for training and evaluation (loss calculation)
-train_y = dataset.get_model_friendly_scores(train_y, train_pmt)
-dev_y = dataset.get_model_friendly_scores(dev_y, dev_pmt)
-test_y = dataset.get_model_friendly_scores(test_y, test_pmt)
 
-###############################################################################################################################
-## Optimizaer algorithm
-#
+def mean0(ls):
+    if isinstance(ls[0], list):
+        islist = True
+        mean = [0.0 for i in range(len(ls[0]))]
+    else:
+        islist = False
+        mean = 0.0
+    for i in range(len(ls)):
+        if islist:
+            for j in range(len(mean)):
+                mean[j] += ls[i][j]
+        else:
+            mean += ls[i]
+    if islist:
+        for i in range(len(mean)):
+            mean[i] /= len(ls)
+    else:
+        mean /= len(ls)
+        mean = [mean]
+    return mean
 
-from nea.optimizers import get_optimizer
-
-optimizer = get_optimizer(args)
-
-###############################################################################################################################
-## Building model
-#
 
 from nea.models import create_model
-
 if args.loss == 'mse':
-	loss = 'mean_squared_error'
+	lossty = nn.MSELoss()
 	metric = 'mean_absolute_error'
 else:
-	loss = 'mean_absolute_error'
+	lossty = nn.L1Loss()
 	metric = 'mean_squared_error'
 
-model = create_model(args, train_y.mean(axis=0), overal_maxlen, vocab)
-model.compile(loss=loss, optimizer=optimizer, metrics=[metric])
+imv = mean0(traindataset.y)
+# print(traindataset.y)
+# print(np.array(imv))
+model = create_model(args, overal_maxlen, vocab, np.array(imv))
+print(model)
+from nea.optimizers import get_optimizer
+optimizer = get_optimizer(model.parameters(), args)
+# print(traindataset.x)
+# print(traindataset.y)
 
-###############################################################################################################################
-## Plotting model
-#
-
-from keras.utils.vis_utils import plot_model
-
-plot_model(model, to_file = out_dir + '/model.png')
-
-###############################################################################################################################
-## Save model architecture
-#
-
-logger.info('Saving model architecture')
-with open(out_dir + '/model_arch.json', 'w') as arch:
-	arch.write(model.to_json(indent=2))
-logger.info('  Done')
-	
-###############################################################################################################################
-## Evaluator
-#
-
-evl = Evaluator(dataset, args.prompt_id, out_dir, dev_x, test_x, dev_y, test_y, dev_y_org, test_y_org)
-
-###############################################################################################################################
-## Training
-#
+# evl = Evaluator(dataset, args.prompt_id, out_dir, dev_x, test_x, dev_y, test_y, dev_y_org, test_y_org)
 
 logger.info('--------------------------------------------------------------------------------------------------------------------------')
 logger.info('Initial Evaluation:')
-evl.evaluate(model, -1, print_info=True)
+# evl.evaluate(model, -1, print_info=True)
 
 total_train_time = 0
 total_eval_time = 0
-
+print(overal_maxlen)
+# from keras.preprocessing import sequence
 
 for ii in range(args.epochs):
-	# Training
-	t0 = time()
-	train_history = model.fit(train_x, train_y, batch_size=args.batch_size, epochs=1, verbose=0)
-	tr_time = time() - t0
-	total_train_time += tr_time
-	
-	# Evaluate
-	t0 = time()
-	evl.evaluate(model, ii)
-	evl_time = time() - t0
-	total_eval_time += evl_time
-	
-	# Print information
-	train_loss = train_history.history['loss'][0]
-	train_metric = train_history.history[metric][0]
-	logger.info('Epoch %d, train: %is, evaluation: %is' % (ii, tr_time, evl_time))
-	logger.info('[Train] loss: %.4f, metric: %.4f' % (train_loss, train_metric))
-	evl.print_info()
+	for i, data in enumerate(traindata):
+		train_x, train_y, train_pmt, lens = data
 
-###############################################################################################################################
-## Summary of the results
-#
+		train_y = np.array(train_y, dtype='float32')
+		if args.prompt_id:
+			train_pmt = np.array(train_pmt, dtype='int32')
+		# Convert scores to boundary of [0 1] for training and evaluation (loss calculation)
+		train_y = Variable(torch.from_numpy(get_model_friendly_scores(train_y, train_pmt)))
 
-logger.info('Training:   %i seconds in total' % total_train_time)
-logger.info('Evaluation: %i seconds in total' % total_eval_time)
+		model.zero_grad()
+		t0 = time()
+		train_x = train_x.long()
+		# print(lens)
+		# train_history = model.fit(train_x, train_y, batch_size=args.batch_size, epochs=1)
+		out=model(Variable(train_x),lens)
+		print (out.type(),out.shape,train_y.type(),train_y.shape)
+		lossm = lossty(out,train_y)
+		lossm.backward()
 
-evl.print_final_info()
+		optimizer.step()
+		tr_time = time() - t0
+		total_train_time += tr_time
+		
 
-
-
-
-
-
-
-
-
-
-
-
-
+		# Pad sequences for mini-batch processing
+		# if args.model_type in {'breg', 'bregp'}:
+		# 	assert args.rnn_dim > 0
+		# 	assert args.recurrent_unit == 'lstm'
+		# 	# train_x = sequence.pad_sequences(train_x, maxlen=overal_maxlen)
+		# 	dev_x = sequence.pad_sequences(dev_x, maxlen=overal_maxlen)
+		# 	# test_x = sequence.pad_sequences(test_x, maxlen=overal_maxlen)
+		# else:
+		# 	# train_x = sequence.pad_sequences(train_x)
+		# 	dev_x = sequence.pad_sequences(dev_x)
+		# 	# test_x = sequence.pad_sequences(test_x)
+		# dev_y = np.array(dev_y, dtype='float32')
+		# test_y = np.array(test_y, dtype='float32')
+		# dev_y = dataset.get_model_friendly_scores(dev_y, dev_pmt)
+		# test_y = dataset.get_model_friendly_scores(test_y, test_pmt)
+		# if args.prompt_id:
+		# 	train_pmt = np.array(train_pmt, dtype='int32')
+		# 	dev_pmt = np.array(dev_pmt, dtype='int32')
+		# 	test_pmt = np.array(test_pmt, dtype='int32')
+		# Evaluate
+		# t0 = time()
+		# evl.evaluate(model, ii)
+		# evl_time = time() - t0
+		# total_eval_time += evl_time
+		
+		# Print information
+		# train_loss = train_history.history['loss'][0]
+		# train_metric = train_history.history[metric][0]
+		# logger.info('Epoch %d, train: %is, evaluation: %is' % (ii, tr_time, evl_time))
+		logger.info('Epoch %d, Iteration %d, train: %is' % (ii, i, tr_time))
+		logger.info('[Train] loss: %.4f' % lossm.data[0])
+		# evl.print_info()
+	logger.info('Training:   %i seconds in total' % total_train_time)
+	logger.info('Evaluation: %i seconds in total' % total_eval_time)
+	# evl.print_final_info()
