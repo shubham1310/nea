@@ -6,6 +6,7 @@ import numpy as np
 import scipy
 from time import time
 import sys
+import pdb
 import nea.utils as U
 import pickle as pk
 
@@ -72,9 +73,9 @@ traindataset= dataloader((args.train_path, args.train_path), args.prompt_id, arg
 devdataset= dataloader((args.train_path, args.dev_path), args.prompt_id, args.vocab_size, args.maxlen, vocab_path=args.vocab_path)
 testdataset = dataloader((args.train_path, args.test_path), args.prompt_id, args.vocab_size, args.maxlen, vocab_path=args.vocab_path)
 
-traindata = torch.utils.data.DataLoader(traindataset,batch_size=args.batch_size,shuffle=True, num_workers=4)
-devdata = torch.utils.data.DataLoader(devdataset,batch_size=args.batch_size,shuffle=True, num_workers=4)
-testdata = torch.utils.data.DataLoader(testdataset,batch_size=args.batch_size,shuffle=True, num_workers=4)
+traindata = torch.utils.data.DataLoader(traindataset,batch_size=args.batch_size,shuffle=True, num_workers=1)
+devdata = torch.utils.data.DataLoader(devdataset,batch_size=args.batch_size,shuffle=True, num_workers=1)
+testdata = torch.utils.data.DataLoader(testdataset,batch_size=args.batch_size,shuffle=True, num_workers=1)
 
 # Dump vocab
 with open(out_dir + '/vocab.pkl', 'wb') as vocab_file:
@@ -116,14 +117,11 @@ else:
 	metric = 'mean_squared_error'
 
 imv = mean0(traindataset.y)
-# print(traindataset.y)
-# print(np.array(imv))
 model = create_model(args, overal_maxlen, vocab, np.array(imv))
 print(model)
 from nea.optimizers import get_optimizer
 optimizer = get_optimizer(model.parameters(), args)
-# print(traindataset.x)
-# print(traindataset.y)
+
 
 # evl = Evaluator(dataset, args.prompt_id, out_dir, dev_x, test_x, dev_y, test_y, dev_y_org, test_y_org)
 
@@ -134,11 +132,10 @@ logger.info('Initial Evaluation:')
 total_train_time = 0
 total_eval_time = 0
 print(overal_maxlen)
-# from keras.preprocessing import sequence
 
 for ii in range(args.epochs):
 	for i, data in enumerate(traindata):
-		train_x, train_y, train_pmt, lens = data
+		train_x, train_y, train_pmt, lens, paddingm = data
 
 		train_y = np.array(train_y, dtype='float32')
 		if args.prompt_id:
@@ -149,11 +146,9 @@ for ii in range(args.epochs):
 		model.zero_grad()
 		t0 = time()
 		train_x = train_x.long()
-		# print(lens)
-		# train_history = model.fit(train_x, train_y, batch_size=args.batch_size, epochs=1)
-		out=model(Variable(train_x),lens)
-		print (out.type(),out.shape,train_y.type(),train_y.shape)
-		lossm = lossty(out,train_y)
+		out=model(Variable(train_x),lens, mask=paddingm)
+		# pdb.set_trace()
+		lossm = lossty(out.squeeze(1),train_y.float())
 		lossm.backward()
 
 		optimizer.step()
@@ -161,17 +156,7 @@ for ii in range(args.epochs):
 		total_train_time += tr_time
 		
 
-		# Pad sequences for mini-batch processing
-		# if args.model_type in {'breg', 'bregp'}:
-		# 	assert args.rnn_dim > 0
-		# 	assert args.recurrent_unit == 'lstm'
-		# 	# train_x = sequence.pad_sequences(train_x, maxlen=overal_maxlen)
-		# 	dev_x = sequence.pad_sequences(dev_x, maxlen=overal_maxlen)
-		# 	# test_x = sequence.pad_sequences(test_x, maxlen=overal_maxlen)
-		# else:
-		# 	# train_x = sequence.pad_sequences(train_x)
-		# 	dev_x = sequence.pad_sequences(dev_x)
-		# 	# test_x = sequence.pad_sequences(test_x)
+		
 		# dev_y = np.array(dev_y, dtype='float32')
 		# test_y = np.array(test_y, dtype='float32')
 		# dev_y = dataset.get_model_friendly_scores(dev_y, dev_pmt)

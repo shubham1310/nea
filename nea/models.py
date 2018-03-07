@@ -38,7 +38,7 @@ class REGRESSION(nn.Module):
 		if args.dropout_prob > 0:
 			self.dropout = Dropout(args.dropout_prob)
 		if args.aggregation == 'mot':
-			self.mot = MeanOverTime(mask_zero=True)
+			self.mot = MeanOverTime()
 		elif args.aggregation.startswith('att'):
 			self.att = Attention(op=args.aggregation, activation='tanh', init_stdev=0.01)
 
@@ -53,14 +53,14 @@ class REGRESSION(nn.Module):
 			self.embed[emb_index].weight.data = emb_reader.get_emb_matrix_given_vocab(vocab, model.layers[model.emb_index].get_weights()) 
 		logger.info('  Done')
 
-	def forward(self,x,lens):
+	def forward(self,x,lens,mask=None):
 		# for i in x:
 		# 	print(x.shape)
 		lens, perm_idx = lens.sort(0, descending=True)
 		x = x[perm_idx]
 		x=self.embed(x)
 		if self.args.cnn_dim > 0:
-			x = self.conv(x)
+			x = self.conv(x, mask=mask)
 		if self.args.rnn_dim > 0:
 			print(lens.numpy())
 			x = pack_padded_sequence(x, lens.numpy(), batch_first=True)
@@ -73,9 +73,9 @@ class REGRESSION(nn.Module):
 		if self.args.dropout_prob > 0:
 			x = self.dropout(x)
 		if self.args.aggregation == 'mot':
-			x= self.mot (x)
+			x= self.mot (x, mask=mask)
 		elif self.args.aggregation.startswith('att'):
-			x= self.att(x)
+			x= self.att(x, mask=mask)
 		x = self.linear(x)
 		x = F.sigmoid(x)
 		return x

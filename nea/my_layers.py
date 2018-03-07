@@ -1,7 +1,9 @@
 import torch
 import numpy as np
 import torch.nn.functional as F
+from torch.autograd import Variable
 import sys
+import pdb
 
 class Attention(torch.nn.Module):
 	def __init__(self, op='attsum', activation='tanh', init_stdev=0.01, **kwargs):
@@ -30,23 +32,27 @@ class Attention(torch.nn.Module):
 		return out.type(torch.DoubleTensor)
 
 class MeanOverTime(torch.nn.Module):
-	def __init__(self, mask_zero=True, **kwargs):
-		self.mask_zero = mask_zero
+	def __init__(self , **kwargs):
 		super(MeanOverTime, self).__init__(**kwargs)
 
 	def forward(self,x, mask=None):
-		if self.mask_zero:
+		if not(mask is None):
 			mask = mask.type(torch.DoubleTensor)
-			return (x.sum(1) / mask.sum(1).unsqueeze(1)).type(torch.DoubleTensor)
+			# pdb.set_trace()
+			s = x.sum(1) 
+			return torch.div(s, Variable(mask.squeeze(1).sum(1).unsqueeze(1).expand(*s.size()).float()))
 		else:
 			return x.mean(1)
 
 class Conv1DWithMasking(torch.nn.Module):
 	def __init__(self, **kwargs):
-		self.conv =  torch.nn.Conv1d(kwargs)
 		super(Conv1DWithMasking, self).__init__(**kwargs)
+		self.conv =  torch.nn.Conv1d(**kwargs)
+		self.weight = self.conv.weight
+		self.bias = self.conv.bias
 
 	def forward(self, x, mask=None):
-		if not(mask ==None):
+		x= self.conv(x)
+		if not(mask is None):
 			x = torch.mul(x, mask)
-		return self.conv(x)
+		return x

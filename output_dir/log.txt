@@ -35,18 +35,3 @@
 [INFO] (nea.asap_reader)   443453 total words, 12146 unique words
 [INFO] (nea.asap_reader) Vocab size: 4000
 [INFO] (nea.asap_reader) Reading dataset from: data/fold_0/train.tsv
-[INFO] (nea.asap_reader)   <num> hit rate: 0.00%, <unk> hit rate: 2.19%
-[INFO] (nea.asap_reader) Creating vocabulary from: data/fold_0/train.tsv
-[INFO] (nea.asap_reader)   443453 total words, 12146 unique words
-[INFO] (nea.asap_reader) Vocab size: 4000
-[INFO] (nea.asap_reader) Reading dataset from: data/fold_0/dev.tsv
-[INFO] (nea.asap_reader)   <num> hit rate: 0.00%, <unk> hit rate: 2.83%
-[INFO] (nea.asap_reader) Creating vocabulary from: data/fold_0/train.tsv
-[INFO] (nea.asap_reader)   443453 total words, 12146 unique words
-[INFO] (nea.asap_reader) Vocab size: 4000
-[INFO] (nea.asap_reader) Reading dataset from: data/fold_0/test.tsv
-[INFO] (nea.asap_reader)   <num> hit rate: 0.00%, <unk> hit rate: 2.84%
-[INFO] (nea.models) Building a REGRESSION model with POOLING
-[INFO] (nea.models)   Done
-[INFO] (nea.asap_reader) --------------------------------------------------------------------------------------------------------------------------
-[INFO] (nea.asap_reader) Initial Evaluation:

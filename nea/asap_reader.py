@@ -227,9 +227,11 @@ class dataloader():
 		# print(x)
 		nx= []
 		lens=[]
+		mask=[]
 		for i in x:
 			lens.append(len(i))
 			nx.append(i+[0 for j in range(trmaxlen-len(i))])
+			mask.append([[1 for j in range(len(i))]+[0 for j in range(trmaxlen-len(i))]])
 		# print(nx)
 		# while 1:
 		# 	pass
@@ -238,6 +240,7 @@ class dataloader():
 		self.y = np.array(y)
 		self.lens=lens
 		self.length=len(y)
+		self.mask = np.array(mask)
 		# print(self.length)
 		self.prompts = np.array(prompts)
 		# return  (vocab, len(vocab), maxlen, 1)
@@ -245,7 +248,7 @@ class dataloader():
 	def __getitem__(self,index):
 		# i = random.randint(0, self.length)
 		i=index
-		return (self.x[i],self.y[i],self.prompts[i],self.lens[i])
+		return (self.x[i],self.y[i],self.prompts[i],self.lens[i],self.mask[i])
 
 	def __len__(self):
 		return self.length
