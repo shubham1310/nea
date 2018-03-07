@@ -45,14 +45,15 @@ class MeanOverTime(torch.nn.Module):
 			return x.mean(1)
 
 class Conv1DWithMasking(torch.nn.Module):
-	def __init__(self, **kwargs):
-		super(Conv1DWithMasking, self).__init__(**kwargs)
-		self.conv =  torch.nn.Conv1d(**kwargs)
-		self.weight = self.conv.weight
-		self.bias = self.conv.bias
+	def __init__(self, *args, **kwargs):
+		super(Conv1DWithMasking, self).__init__()
+		self.conv =  torch.nn.Conv1d(*args)
 
 	def forward(self, x, mask=None):
+		pdb.set_trace()
+		x = x.permute([0, 2, 1])
 		x= self.conv(x)
+		x = x.permute([0, 2, 1])
 		if not(mask is None):
-			x = torch.mul(x, mask)
+			x = torch.mul(x, Variable(mask.squeeze(1).unsqueeze(2).expand(*x.size()).float()))
 		return x

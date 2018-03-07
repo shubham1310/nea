@@ -131,7 +131,7 @@ logger.info('Initial Evaluation:')
 
 total_train_time = 0
 total_eval_time = 0
-print(overal_maxlen)
+# print(overal_maxlen)
 
 for ii in range(args.epochs):
 	for i, data in enumerate(traindata):
@@ -154,7 +154,8 @@ for ii in range(args.epochs):
 		optimizer.step()
 		tr_time = time() - t0
 		total_train_time += tr_time
-		
+		logger.info('Epoch %d, Iteration %d, train: %fs' % (ii, i, tr_time))
+		logger.info('[Train] loss: %.4f' % lossm.data[0])
 
 		
 		# dev_y = np.array(dev_y, dtype='float32')
@@ -175,8 +176,7 @@ for ii in range(args.epochs):
 		# train_loss = train_history.history['loss'][0]
 		# train_metric = train_history.history[metric][0]
 		# logger.info('Epoch %d, train: %is, evaluation: %is' % (ii, tr_time, evl_time))
-		logger.info('Epoch %d, Iteration %d, train: %is' % (ii, i, tr_time))
-		logger.info('[Train] loss: %.4f' % lossm.data[0])
+		
 		# evl.print_info()
 	logger.info('Training:   %i seconds in total' % total_train_time)
 	logger.info('Evaluation: %i seconds in total' % total_eval_time)

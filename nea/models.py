@@ -28,7 +28,7 @@ class REGRESSION(nn.Module):
 		self.embed = Embedding(args.vocab_size, args.emb_dim)
 		outputdim = args.emb_dim
 		if args.cnn_dim > 0:
-			self.conv = Conv1DWithMasking(outputdim,args.cnn_dim, args.cnn_window_size, padding=(args.cnn_window_size - 1)//2)
+			self.conv = Conv1DWithMasking(outputdim,args.cnn_dim, args.cnn_window_size, 1,(args.cnn_window_size - 1)//2)
 			outputdim = args.cnn_dim
 		if args.rnn_dim > 0:
 			self.rnn = RNN(outputdim,args.rnn_dim,num_layers=1, bias=True, dropout=self.dropout_W, batch_first=True, bidirectional=bidirec)
@@ -54,20 +54,16 @@ class REGRESSION(nn.Module):
 		logger.info('  Done')
 
 	def forward(self,x,lens,mask=None):
-		# for i in x:
-		# 	print(x.shape)
 		lens, perm_idx = lens.sort(0, descending=True)
 		x = x[perm_idx]
 		x=self.embed(x)
 		if self.args.cnn_dim > 0:
 			x = self.conv(x, mask=mask)
 		if self.args.rnn_dim > 0:
-			print(lens.numpy())
 			x = pack_padded_sequence(x, lens.numpy(), batch_first=True)
 			# h0 = Variable(torch.zeros(batch_size, self.args.rnn_dim))
 			# c0 = Variable(torch.zeros(batch_size, self.args.rnn_dim))
 			x,_ = self.rnn(x)  # (h0, c0)
-			print(x)
 			# current = temp[0]
 			x, _ = pad_packed_sequence(x, batch_first=True)
 		if self.args.dropout_prob > 0:

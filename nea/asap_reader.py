@@ -224,7 +224,6 @@ class dataloader():
 		
 		x, y, prompts, trmaxlen = read_dataset(path, prompt_id, maxlen, vocab, tokenize_text, to_lower)
 
-		# print(x)
 		nx= []
 		lens=[]
 		mask=[]
@@ -232,21 +231,15 @@ class dataloader():
 			lens.append(len(i))
 			nx.append(i+[0 for j in range(trmaxlen-len(i))])
 			mask.append([[1 for j in range(len(i))]+[0 for j in range(trmaxlen-len(i))]])
-		# print(nx)
-		# while 1:
-		# 	pass
 
 		self.x = np.array(nx)
 		self.y = np.array(y)
 		self.lens=lens
 		self.length=len(y)
 		self.mask = np.array(mask)
-		# print(self.length)
 		self.prompts = np.array(prompts)
-		# return  (vocab, len(vocab), maxlen, 1)
 
 	def __getitem__(self,index):
-		# i = random.randint(0, self.length)
 		i=index
 		return (self.x[i],self.y[i],self.prompts[i],self.lens[i],self.mask[i])
 
