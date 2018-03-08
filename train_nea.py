@@ -146,9 +146,9 @@ for ii in range(args.epochs):
 		model.zero_grad()
 		t0 = time()
 		train_x = train_x.long()
-		out=model(Variable(train_x),lens, mask=paddingm)
+		out,perm_ids=model(Variable(train_x),lens, mask=paddingm)
 		# pdb.set_trace()
-		lossm = lossty(out.squeeze(1),train_y.float())
+		lossm = lossty(out.squeeze(1),train_y[perm_ids].float())
 		lossm.backward()
 
 		optimizer.step()

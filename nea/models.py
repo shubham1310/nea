@@ -74,7 +74,7 @@ class REGRESSION(nn.Module):
 			x= self.att(x, mask=mask)
 		x = self.linear(x)
 		x = F.sigmoid(x)
-		return x
+		return x, perm_idx
 
 def create_model(args, overal_maxlen, vocab, initial_mean_value):
 	
