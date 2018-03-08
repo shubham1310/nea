@@ -1,10 +1,10 @@
 [INFO] (nea.utils) Arguments:
-[INFO] (nea.utils)   aggregation: mot
+[INFO] (nea.utils)   aggregation: attsum
 [INFO] (nea.utils)   algorithm: rmsprop
 [INFO] (nea.utils)   batch_size: 4
 [INFO] (nea.utils)   cnn_dim: 3
 [INFO] (nea.utils)   cnn_window_size: 3
-[INFO] (nea.utils)   command: train_nea.py -tr data/fold_0/train.tsv -tu data/fold_0/dev.tsv -ts data/fold_0/test.tsv -p 1 -o output_dir -b 4 -c 3
+[INFO] (nea.utils)   command: train_nea.py -tr data/fold_0/train.tsv -tu data/fold_0/dev.tsv -ts data/fold_0/test.tsv -p 1 -o output_dir -b 4 -c 3 --aggregation attsum
 [INFO] (nea.utils)   dev_path: data/fold_0/dev.tsv
 [INFO] (nea.utils)   dropout_prob: 0.5
 [INFO] (nea.utils)   emb_dim: 50
@@ -50,3 +50,5 @@
 [INFO] (nea.models)   Done
 [INFO] (nea.asap_reader) --------------------------------------------------------------------------------------------------------------------------
 [INFO] (nea.asap_reader) Initial Evaluation:
+[INFO] (nea.asap_reader) Epoch 0, Iteration 0, train: 23.886629s
+[INFO] (nea.asap_reader) [Train] loss: 0.1109

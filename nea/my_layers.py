@@ -1,35 +1,38 @@
 import torch
 import numpy as np
+import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import sys
 import pdb
+from .utils import tensordot
 
 class Attention(torch.nn.Module):
-	def __init__(self, op='attsum', activation='tanh', init_stdev=0.01, **kwargs):
+	def __init__(self, input_size, op='attsum', activation='tanh', init_stdev=0.01, **kwargs):
 		super(Attention, self).__init__(**kwargs)
 		assert op in {'attsum', 'attmean'}
 		assert activation in {None, 'tanh'}
 		self.op = op
 		self.activation = activation
 		self.init_stdev = init_stdev
-		self.att_v = (np.random.randn(input_shape[2]) * self.init_stdev).astype('float32')
-		self.att_W =(np.random.randn(input_shape[2], input_shape[2]) * self.init_stdev).astype('float32')
-		self.trainable_weights = [self.att_v, self.att_W]
+		self.input_size = input_size
+		self.att_V = nn.Parameter(torch.randn(input_size, 1) * init_stdev)
+		self.att_W = nn.Parameter(torch.randn(input_size, input_size) * init_stdev)
 
 	def forward(self,x, mask=None):
-		y = torch.mm(x, self.att_W)
+		# pdb.set_trace()
+		y = tensordot(x, self.att_W)
 		if not self.activation:
-			weights = torch.mm(self.att_v, y, axes=[0, 2])
+			weights = tensordot(y,self.att_V)
 		elif self.activation == 'tanh':
-			weights = torch.mm(self.att_v, F.tanh(y), axes=[0, 2])
-		weights = F.softmax(weights)
-		out = x * weights.unsqueeze(1).repeat(1, 1, x.shape[2])
+			weights = tensordot(F.tanh(y), self.att_V)
+		w = F.softmax(weights, dim=2)
+		w = w.expand(*w.size()[:-1], self.input_size)
+		s = (x * w).sum(1) 
 		if self.op == 'attsum':
-			out = out.sum(axis=1)
+			return s
 		elif self.op == 'attmean':
-			out = out.sum(axis=1) / mask.sum(axis=1, keepdims=True)
-		return out.type(torch.DoubleTensor)
+			return torch.div(s, Variable(mask.squeeze(1).sum(1).unsqueeze(1).expand(*s.size()).float()))
 
 class MeanOverTime(torch.nn.Module):
 	def __init__(self , **kwargs):
@@ -50,7 +53,7 @@ class Conv1DWithMasking(torch.nn.Module):
 		self.conv =  torch.nn.Conv1d(*args)
 
 	def forward(self, x, mask=None):
-		pdb.set_trace()
+		# pdb.set_trace()
 		x = x.permute([0, 2, 1])
 		x= self.conv(x)
 		x = x.permute([0, 2, 1])

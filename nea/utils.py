@@ -2,6 +2,19 @@ import sys
 import os, errno
 import logging
 
+def tensordot(x, y):
+    '''
+        x, y are Tensors
+            x.Size()[-1] == y.Size()[0]
+            multiplicy the last dim of x by the first dimension of y
+        x, y should not both be 1 dimensional
+    '''
+    outshape = x.size()[:-1] + y.size()[1:]
+    common_dim = x.size()[-1]
+    # pdb.set_trace()
+    return x.contiguous().view(-1, common_dim).mm(y.view(common_dim, -1)).view(outshape)
+
+
 #-----------------------------------------------------------------------------------------------------------#
 
 def set_logger(out_dir=None):

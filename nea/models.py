@@ -31,7 +31,7 @@ class REGRESSION(nn.Module):
 			self.conv = Conv1DWithMasking(outputdim,args.cnn_dim, args.cnn_window_size, 1,(args.cnn_window_size - 1)//2)
 			outputdim = args.cnn_dim
 		if args.rnn_dim > 0:
-			self.rnn = RNN(outputdim,args.rnn_dim,num_layers=1, bias=True, dropout=self.dropout_W, batch_first=True, bidirectional=bidirec)
+			self.rnn = RNN(outputdim, args.rnn_dim,num_layers=1, bias=True, dropout=self.dropout_W, batch_first=True, bidirectional=bidirec)
 			outputdim = args.rnn_dim
 			if bidirec==1:
 				outputdim =  args.rnn_dim * 2
@@ -40,7 +40,7 @@ class REGRESSION(nn.Module):
 		if args.aggregation == 'mot':
 			self.mot = MeanOverTime()
 		elif args.aggregation.startswith('att'):
-			self.att = Attention(op=args.aggregation, activation='tanh', init_stdev=0.01)
+			self.att = Attention(outputdim, op=args.aggregation, activation='tanh', init_stdev=0.01)
 
 		self.linear  = Linear(outputdim,num_outputs)
 		# if not args.skip_init_bias:
